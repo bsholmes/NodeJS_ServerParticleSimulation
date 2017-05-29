@@ -1,0 +1,300 @@
+<!-- // Copyright (c) 2017 Ben Holmes
+
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE. -->
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js canvas - interactive particles</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				font-family: Monospace;
+				background-color: #f0f0f0;
+				margin: 0px;
+				overflow: hidden;
+			}
+		</style>
+	</head>
+	<body>
+
+		<script src="Three/three.js"></script>
+
+		<script src="Three/js/Detector.js"></script>
+		<script src="Three/js/renderers/Projector.js"></script>
+		<script src="Three/js/loaders/RGBELoader.js"></script>
+		<script src="Three/js/renderers/CanvasRenderer.js"></script>
+		<script src="Three/js/postprocessing/EffectComposer.js"></script>
+		<script src="Three/js/postprocessing/RenderPass.js"></script>
+		<script src="Three/js/postprocessing/MaskPass.js"></script>
+		<script src="Three/js/postprocessing/ShaderPass.js"></script>
+		<script src="Three/js/shaders/CopyShader.js"></script>
+		<script src="Three/js/shaders/LuminosityHighPassShader.js"></script>
+		<script src="Three/js/postprocessing/UnrealBloomPass.js"></script>
+
+		<script src="Three/js/libs/stats.min.js"></script>
+
+		<script src="/socket.io/socket.io.js"></script>
+
+		<script>
+			var container, stats;
+			var camera, scene, renderer;
+
+			var bloomPass, renderScene, composer;
+
+			var mouse;
+			var mouseIsHeld = false;
+			var screenX;
+			var screenY;
+
+			var socket;
+
+			var PI2 = Math.PI * 2;
+
+			var spriteMap = new THREE.TextureLoader().load( 'textures/particleSprite.png' );
+
+			var programFill = function ( context ) {
+
+				context.beginPath();
+				context.arc( 0, 0, 0.5, 0, PI2, true );
+				context.fill();
+
+			};
+
+			//currently unused
+			// var programStroke = function ( context ) {
+
+			// 	context.lineWidth = 0.025;
+			// 	context.beginPath();
+			// 	context.arc( 0, 0, 0.5, 0, PI2, true );
+			// 	context.stroke();
+
+			// };
+
+			init();
+			animate();
+
+			//color conversions
+			function componentToHex(c) {
+			    var hex = c.toString(16);
+			    return hex.length == 1 ? "0" + hex : hex;
+			}
+
+			function rgbToHex(r, g, b) {
+			    return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+			}
+
+			function init() {
+				
+				if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+
+				//start socket connection to hosting server
+				socket = io();
+
+				//set up socket events
+
+				//DEBUG: only used to ensure socket connection
+				// socket.on("connect", function(data){
+				// 	console.log("socket connect!");
+				// });
+
+				socket.on("initParticleData", function(data){
+					console.log("initParticleData");
+					var particles = JSON.parse(data);
+
+					//create sprites and add to scene
+					particles.forEach(function(particle)
+					{
+						var pSprite = new THREE.Sprite(new THREE.SpriteCanvasMaterial(
+							{color: rgbToHex(particle.color.x, 
+											particle.color.y, 
+											particle.color.z),
+											program:programFill}));
+						
+						pSprite.position.x = particle.position.x;
+						pSprite.position.y = particle.position.y;
+						pSprite.position.z = particle.position.z;
+						pSprite.scale.x = pSprite.scale.y = 3;
+						sprites.push(pSprite);
+						scene.add(pSprite);
+					});
+
+					renderer.render( scene, camera );
+				});
+
+				socket.on("updateParticleData", function(data){
+					// console.log("updateParticleData");
+					var particles = JSON.parse(data);
+
+					//update the sprites with positions and colors
+					for(var i = 0; i < particles.length; ++i)
+					{
+						sprites[i].position.x = particles[i].position.x;
+						sprites[i].position.y = particles[i].position.y;
+						sprites[i].position.z = particles[i].position.z;
+
+						sprites[i].material.setValues({color:
+								   rgbToHex(Math.round(particles[i].color.x * 255 + 20),
+											Math.round(particles[i].color.y * 255 + 20),
+											Math.round(particles[i].color.z * 255 + 20))});
+					}
+
+					renderer.render( scene, camera );
+				});
+
+				container = document.createElement( 'div' );
+				document.body.appendChild( container );
+
+				var info = document.createElement( 'div' );
+				info.style.position = 'absolute';
+				info.style.top = '10px';
+				info.style.width = '100%';
+				info.style.textAlign = 'center';
+				info.innerHTML = 'Interactive particles with server-side simulation - Ben Holmes';
+				container.appendChild( info );
+
+				camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 1, 1000 );
+				camera.position.set( 0, 0, 500 );
+
+				scene = new THREE.Scene();
+
+				var sprites = [];
+				
+				mouse = new THREE.Vector2();
+
+				renderer = new THREE.CanvasRenderer();
+				renderer.setClearColor( 0x000000 );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.toneMapping = THREE.LinearToneMapping;
+				container.appendChild( renderer.domElement );
+
+				stats = new Stats();
+				container.appendChild( stats.dom );
+
+				//event listeners
+				document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+				document.addEventListener( 'mousedown', onDocumentMouseDown, false );
+				document.addEventListener( 'mouseup', onDocumentMouseUp, false );
+				document.addEventListener( 'keydown', onDocumentKeyDown, false );
+
+				window.addEventListener( 'resize', onWindowResize, false );
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+			}
+
+			function onDocumentMouseMove( event ) {
+
+				event.preventDefault();
+
+				mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+				mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+
+				screenX = mouse.x * window.innerWidth;
+				screenY = mouse.y * window.innerHeight;
+			}
+
+			function onDocumentMouseDown( event ) {
+
+				event.preventDefault();
+
+				mouseIsHeld = true;
+			}
+
+			function onDocumentMouseUp( event ) {
+
+				event.preventDefault();
+
+				mouseIsHeld = false;
+			}
+
+			var theta = 0;
+			var radius = 500;
+
+			function onDocumentKeyDown( event ) {
+
+				event.preventDefault();
+
+				console.log("event.key: " + event.key);
+
+				if(event.key == 'a'){
+					theta -= 0.1;
+
+					camera.position.x = radius * Math.sin( THREE.Math.degToRad( theta ) );
+					camera.position.y = radius * Math.sin( THREE.Math.degToRad( theta ) );
+					camera.position.z = radius * Math.cos( THREE.Math.degToRad( theta ) );
+					camera.lookAt( scene.position );
+
+					camera.updateMatrixWorld();
+				}
+
+				if(event.key == 'd'){
+					theta += 0.5;
+
+					camera.position.x = radius * Math.sin( THREE.Math.degToRad( theta ) );
+					camera.position.y = radius * Math.sin( THREE.Math.degToRad( theta ) );
+					camera.position.z = radius * Math.cos( THREE.Math.degToRad( theta ) );
+					camera.lookAt( scene.position );
+
+					camera.updateMatrixWorld();
+				}
+			}
+
+			//
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+
+				stats.update();
+
+				if(mouseIsHeld) {
+
+					var viewProjectionMatrix = new THREE.Matrix4();
+
+					camera.updateProjectionMatrix();
+
+					viewProjectionMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+
+					//send input events to the server
+					socket.emit("onInputEvent", JSON.stringify({
+						mouseX:screenX, 
+						mouseY:screenY,
+						cameraViewProjectionMatrix:viewProjectionMatrix.elements,
+						cameraForwardVec:camera.getWorldDirection(),
+						canvasWidthHalf:window.innerWidth * 0.5,
+						canvasHeightHalf:window.innerHeight * 0.5
+					}));
+				}
+			}
+
+		</script>
+
+	</body>
+</html>
+
+
