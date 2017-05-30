@@ -7,3 +7,7 @@ This project was intended to refresh my javascript skills, to help me learn Node
 The project is a server written with NodeJS using websockets for real-time communication with the client and uses a worker thread for quick, parallel physics simulation. The server simulates physics for a set of particles that can be interacted with through the client. The client renders the particles and gets input events which are sent to the server for use in physics simulation.
 
 The client uses Three.js for the 3d environment and rendering.
+
+To run start the server with 'node index.js' then navigate to localhost:8888/start in a web browser.
+
+Particles can be pulled by clicking and dragging the mouse, and the camera can be rotated with the 'a' and 'd' keys.
