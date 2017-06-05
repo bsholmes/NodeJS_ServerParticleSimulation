@@ -47,7 +47,7 @@ function start(route, handle) {
 		console.log("socket request");
 		sockresponse(null, true);
 	});
-	server.listen(8888);
+	server.listen(8080);
 
 
 	//listen for connection
