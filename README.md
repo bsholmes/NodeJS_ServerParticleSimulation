@@ -8,6 +8,7 @@ The project is a server written with NodeJS using websockets for real-time commu
 
 The client uses Three.js for the 3d environment and rendering.
 
-To run start the server with 'node index.js' then navigate to localhost:8080/start in a web browser.
+To run first 'npm install' then 'npm start' then navigate to
+localhost:8080/start in a web browser.
 
 Particles can be pulled by clicking and dragging the mouse, and the camera can be rotated with the 'a' and 'd' keys.
