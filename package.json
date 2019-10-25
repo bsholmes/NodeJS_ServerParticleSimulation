@@ -1,11 +1,15 @@
 {
-  "name" : "NodeJS_ServerParticleSimulation",
-  "version" : "0.1.0",
-  "main" : "index.js",
-  "scripts" : {
-    "start" : "node index.js"
+  "name": "NodeJS_ServerParticleSimulation",
+  "version": "0.1.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node ./src/index.js"
   },
-  "engines" : {
-    "node" : "~6.0"
+  "engines": {
+    "node": "~6.0"
+  },
+  "dependencies": {
+    "threads": "^0.12",
+    "socket.io": "2.3.0"
   }
 }
