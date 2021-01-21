@@ -10,6 +10,6 @@
   },
   "dependencies": {
     "threads": "^0.12",
-    "socket.io": "2.3.0"
+    "socket.io": "2.4.0"
   }
 }
